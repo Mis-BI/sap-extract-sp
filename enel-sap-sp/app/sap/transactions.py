@@ -41,10 +41,15 @@ class Zucrm039TransactionRunner:
         session.set_text("wnd[0]/usr/ctxtSC_QMCOD-LOW", "*")
         session.set_text("wnd[0]/usr/ctxtPC_VARIA", self._settings.sap_variation)
         session.set_focus("wnd[0]/usr/ctxtPC_VARIA")
-        session.set_caret_position("wnd[0]/usr/ctxtPC_VARIA", len(self._settings.sap_variation))
+        caret_pos = 9 if len(self._settings.sap_variation) >= 9 else len(self._settings.sap_variation)
+        session.set_caret_position("wnd[0]/usr/ctxtPC_VARIA", caret_pos)
 
-        started_epoch = time.time()
+        # Fluxo alinhado ao script informado:
+        # executar relatorio -> menu exportar -> confirmar popup.
         session.press("wnd[0]/tbar[1]/btn[8]")
+        started_epoch = time.time()
+        session.select("wnd[0]/mbar/menu[0]/menu[4]/menu[1]")
+        session.press("wnd[1]/tbar[0]/btn[0]")
 
         exported_file = self._file_watcher.wait_for_export(
             baseline=baseline,
