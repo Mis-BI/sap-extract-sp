@@ -8,12 +8,54 @@ from pathlib import Path
 
 from app.core.settings import Settings
 from app.sap.clipboard import WindowsClipboardService
-from app.sap.exceptions import SapExportTimeoutError
+from app.sap.exceptions import SapAutomationError, SapExportTimeoutError
 from app.sap.file_watcher import ExportFileWatcher
 from app.sap.gui_client import SapSessionFacade
 
 
 logger = logging.getLogger(__name__)
+
+
+class SapExportDialogService:
+    """Handles SAP export popups and enforces output path."""
+
+    def __init__(self, export_dir: Path):
+        self._export_dir = export_dir
+        self._export_dir.mkdir(parents=True, exist_ok=True)
+
+    def finalize_export(self, session: SapSessionFacade) -> float:
+        """Sets DY_PATH when available and confirms export."""
+        export_path = self._to_sap_path(self._export_dir)
+        path_field = "wnd[1]/usr/ctxtDY_PATH"
+        save_button = "wnd[1]/tbar[0]/btn[11]"
+        ok_button = "wnd[1]/tbar[0]/btn[0]"
+        overwrite_yes = "wnd[1]/usr/btnSPOP-OPTION1"
+
+        # Some SAP layouts show an intermediate confirmation before path/filename fields.
+        if session.exists(ok_button) and not session.exists(path_field):
+            session.press(ok_button)
+            time.sleep(0.2)
+
+        if session.exists(path_field):
+            session.set_text(path_field, export_path)
+            logger.info("Diretorio de exportacao SAP definido: %s", export_path)
+
+        started_epoch = time.time()
+        if session.exists(save_button):
+            session.press(save_button)
+        elif session.exists(ok_button):
+            session.press(ok_button)
+        else:
+            raise SapAutomationError("Dialogo de exportacao SAP nao encontrado para confirmar salvamento.")
+
+        if session.exists(overwrite_yes):
+            session.press(overwrite_yes)
+
+        return started_epoch
+
+    @staticmethod
+    def _to_sap_path(path: Path) -> str:
+        return str(path).replace("/", "\\")
 
 
 class Zucrm039TransactionRunner:
@@ -22,6 +64,7 @@ class Zucrm039TransactionRunner:
     def __init__(self, settings: Settings, file_watcher: ExportFileWatcher):
         self._settings = settings
         self._file_watcher = file_watcher
+        self._export_dialog = SapExportDialogService(settings.sap_export_dir)
 
     @staticmethod
     def _format_sap_date(value: date) -> str:
@@ -45,11 +88,10 @@ class Zucrm039TransactionRunner:
         session.set_caret_position("wnd[0]/usr/ctxtPC_VARIA", caret_pos)
 
         # Fluxo alinhado ao script informado:
-        # executar relatorio -> menu exportar -> confirmar popup.
+        # executar relatorio -> menu exportar -> confirmar popup + salvar no SAP_EXPORT_DIR.
         session.press("wnd[0]/tbar[1]/btn[8]")
-        started_epoch = time.time()
         session.select("wnd[0]/mbar/menu[0]/menu[4]/menu[1]")
-        session.press("wnd[1]/tbar[0]/btn[0]")
+        started_epoch = self._export_dialog.finalize_export(session)
 
         exported_file = self._file_watcher.wait_for_export(
             baseline=baseline,
@@ -101,6 +143,7 @@ class Iw59TransactionRunner:
         self._settings = settings
         self._file_watcher = file_watcher
         self._clipboard_service = clipboard_service
+        self._export_dialog = SapExportDialogService(settings.sap_export_dir)
 
     def run(self, session: SapSessionFacade, notes: list[str]) -> Path | None:
         logger.info("Executando transacao %s com %d nota(s)", self._settings.sap_transaction_iw59, len(notes))
@@ -129,8 +172,7 @@ class Iw59TransactionRunner:
         session.set_focus(option_id)
         session.press("wnd[1]/tbar[0]/btn[0]")
 
-        export_started = time.time()
-        session.press("wnd[1]/tbar[0]/btn[0]")
+        export_started = self._export_dialog.finalize_export(session)
 
         try:
             exported_file = self._file_watcher.wait_for_export(
