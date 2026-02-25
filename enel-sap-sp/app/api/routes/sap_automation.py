@@ -2,10 +2,10 @@
 from __future__ import annotations
 
 import logging
-from datetime import date
+from datetime import date, datetime
 
 from fastapi import APIRouter, Depends, HTTPException
-from pydantic import BaseModel, Field, model_validator
+from pydantic import AliasChoices, BaseModel, Field, field_validator, model_validator
 
 from app.sap.dependencies import get_orchestrator
 from app.sap.exceptions import SapAutomationError
@@ -21,8 +21,36 @@ router = APIRouter(prefix="/api/v1", tags=["sap-automation"])
 class SapAutomationRequest(BaseModel):
     """Request payload for SAP run."""
 
-    start_date: date = Field(..., description="Data inicial no formato YYYY-MM-DD")
-    end_date: date = Field(..., description="Data final no formato YYYY-MM-DD")
+    start_date: date = Field(
+        ...,
+        description="Data inicial (YYYY-MM-DD, DD.MM.YYYY ou DD/MM/YYYY)",
+        validation_alias=AliasChoices("start_date", "startDate"),
+    )
+    end_date: date = Field(
+        ...,
+        description="Data final (YYYY-MM-DD, DD.MM.YYYY ou DD/MM/YYYY)",
+        validation_alias=AliasChoices("end_date", "endDate"),
+    )
+
+    @staticmethod
+    def _parse_flexible_date(value: object) -> date:
+        if isinstance(value, date):
+            return value
+        if isinstance(value, datetime):
+            return value.date()
+        if isinstance(value, str):
+            normalized = value.strip()
+            for fmt in ("%Y-%m-%d", "%d.%m.%Y", "%d/%m/%Y"):
+                try:
+                    return datetime.strptime(normalized, fmt).date()
+                except ValueError:
+                    continue
+        raise ValueError("Formato de data invalido. Use YYYY-MM-DD, DD.MM.YYYY ou DD/MM/YYYY")
+
+    @field_validator("start_date", "end_date", mode="before")
+    @classmethod
+    def parse_dates(cls, value: object) -> date:
+        return cls._parse_flexible_date(value)
 
     @model_validator(mode="after")
     def validate_period(self) -> "SapAutomationRequest":
