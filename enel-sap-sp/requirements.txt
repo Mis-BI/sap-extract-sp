@@ -6,5 +6,6 @@ python-dotenv>=1.0.0
 fastapi>=0.115.0
 uvicorn[standard]>=0.30.0
 pywin32>=306; platform_system == "Windows"
+pywinauto>=0.6.8; platform_system == "Windows"
 
 numpy

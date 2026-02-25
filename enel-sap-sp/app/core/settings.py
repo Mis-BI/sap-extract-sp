@@ -65,8 +65,8 @@ class Settings:
             sap_language=os.getenv("SAP_LANGUAGE", "PT").strip() or "PT",
             sap_server_name=os.getenv("SAP_SERVER_NAME", "00 SAP ERP").strip() or "00 SAP ERP",
             sap_connection_name=(
-                os.getenv("SAP_CONNECTION_NAME", "H181 RP1 ENEL SP CCS Pr...").strip()
-                or "H181 RP1 ENEL SP CCS Pr..."
+                os.getenv("SAP_CONNECTION_NAME", "H181 RP1 ENEL SP CCS Produção (without SSO)").strip()
+                or "H181 RP1 ENEL SP CCS Produção (without SSO)"
             ),
             sap_logon_executable=os.getenv(
                 "SAP_LOGON_EXECUTABLE",
