@@ -2,7 +2,9 @@
 from __future__ import annotations
 
 import logging
+import shutil
 import time
+from datetime import datetime
 from datetime import date
 from pathlib import Path
 
@@ -234,8 +236,9 @@ class Iw59TransactionRunner:
                 baseline=baseline,
                 execution_started_epoch=export_started,
             )
-            logger.info("Arquivo IW59 detectado: %s", exported_file)
-            return exported_file
+            copied_file = self._copy_to_new_workbook(exported_file)
+            logger.info("Arquivo IW59 detectado: %s | copia completa criada: %s", exported_file, copied_file)
+            return copied_file
         except SapExportTimeoutError:
             logger.warning(
                 "Fluxo IW59 executado, mas nenhum arquivo novo foi detectado no diretorio monitorado."
@@ -250,3 +253,10 @@ class Iw59TransactionRunner:
                 return
             time.sleep(0.3)
         raise SapAutomationError(f"Elemento SAP nao encontrado: {control_id}")
+
+    def _copy_to_new_workbook(self, source_file: Path) -> Path:
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        suffix = source_file.suffix or ".xlsx"
+        target_file = self._settings.sap_iw59_export_dir / f"iw59_copia_completa_{timestamp}{suffix}"
+        shutil.copy2(source_file, target_file)
+        return target_file
