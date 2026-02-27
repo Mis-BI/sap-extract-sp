@@ -159,26 +159,29 @@ class SapNavigationService:
         self._max_f3_presses = max_f3_presses
 
     def back_until_transaction_screen(self, session: SapSessionFacade) -> None:
-        """Press F3 repeatedly until selection field appears or max attempts reached."""
-        target_field = "wnd[0]/usr/ctxtPC_QMART"
+        """Press F3 repeatedly (at least 3x) before moving to IW59."""
+        target_field = "wnd[0]/tbar[0]/okcd"
         back_button = "wnd[0]/tbar[0]/btn[3]"
+        min_presses = 3
+        max_presses = max(min_presses, min(self._max_f3_presses, 4))
+        pressed = 0
 
-        for attempt in range(self._max_f3_presses):
-            if session.exists(target_field):
-                logger.info("Retorno via F3 concluido apos %d tentativa(s).", attempt)
-                return
-
+        for _ in range(max_presses):
             if not session.exists(back_button):
                 logger.info("Botao F3 indisponivel; seguindo fluxo para proxima transacao.")
                 return
 
             session.press(back_button)
+            pressed += 1
             time.sleep(0.3)
 
-        logger.warning(
-            "Limite de F3 atingido (%d). Seguindo para IW59 mesmo sem confirmar tela de transacao.",
-            self._max_f3_presses,
-        )
+            # Garante pelo menos 3 pressionamentos, podendo parar no 4o
+            # quando o campo de comando estiver disponivel.
+            if pressed >= min_presses and session.exists(target_field):
+                logger.info("Retorno via F3 concluido com %d pressionamento(s).", pressed)
+                return
+
+        logger.info("Retorno via F3 executado com %d pressionamento(s).", pressed)
 
 
 class Iw59TransactionRunner:
@@ -204,7 +207,9 @@ class Iw59TransactionRunner:
         session.set_text("wnd[0]/tbar[0]/okcd", self._settings.sap_transaction_iw59)
         session.send_vkey(0)
 
-        session.press("wnd[0]/usr/btn%_QMNUM_%_APP_%-VALU_PUSH")
+        multi_select_btn = "wnd[0]/usr/btn%_QMNUM_%_APP_%-VALU_PUSH"
+        self._wait_for_control(session, multi_select_btn, timeout_seconds=8.0)
+        session.press(multi_select_btn)
 
         self._clipboard_service.copy_lines(notes)
         session.press("wnd[1]/tbar[0]/btn[24]")
@@ -236,3 +241,12 @@ class Iw59TransactionRunner:
                 "Fluxo IW59 executado, mas nenhum arquivo novo foi detectado no diretorio monitorado."
             )
             return None
+
+    @staticmethod
+    def _wait_for_control(session: SapSessionFacade, control_id: str, timeout_seconds: float) -> None:
+        deadline = time.monotonic() + timeout_seconds
+        while time.monotonic() < deadline:
+            if session.exists(control_id):
+                return
+            time.sleep(0.3)
+        raise SapAutomationError(f"Elemento SAP nao encontrado: {control_id}")
