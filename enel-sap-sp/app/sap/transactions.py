@@ -64,7 +64,7 @@ class Zucrm039TransactionRunner:
     def __init__(self, settings: Settings, file_watcher: ExportFileWatcher):
         self._settings = settings
         self._file_watcher = file_watcher
-        self._export_dialog = SapExportDialogService(settings.sap_export_dir)
+        self._export_dialog = SapExportDialogService(settings.sap_zucrm_export_dir)
 
     @staticmethod
     def _format_sap_date(value: date) -> str:
@@ -89,7 +89,7 @@ class Zucrm039TransactionRunner:
         session.set_caret_position("wnd[0]/usr/ctxtPC_VARIA", caret_pos)
 
         # Fluxo alinhado ao script informado:
-        # executar relatorio -> menu exportar -> confirmar popup + salvar no SAP_EXPORT_DIR.
+        # executar relatorio -> menu exportar -> confirmar popup + salvar no diretorio da ZUCRM.
         session.press("wnd[0]/tbar[1]/btn[8]")
         session.select("wnd[0]/mbar/menu[0]/menu[4]/menu[1]")
         started_epoch = self._export_dialog.finalize_export(session)
@@ -117,7 +117,7 @@ class Zucrm039TransactionRunner:
 
     def _snapshot_all_excel_files(self) -> dict[Path, float]:
         snapshot: dict[Path, float] = {}
-        directory = self._settings.sap_export_dir
+        directory = self._settings.sap_zucrm_export_dir
         for pattern in ("*.XLSX", "*.xlsx"):
             for path in directory.glob(pattern):
                 try:
@@ -128,7 +128,7 @@ class Zucrm039TransactionRunner:
         return snapshot
 
     def _find_export_named_fallback(self, baseline_all: dict[Path, float], execution_started_epoch: float) -> Path | None:
-        directory = self._settings.sap_export_dir
+        directory = self._settings.sap_zucrm_export_dir
         candidate: Path | None = None
         candidate_mtime = -1.0
 
@@ -196,7 +196,7 @@ class Iw59TransactionRunner:
         self._settings = settings
         self._file_watcher = file_watcher
         self._clipboard_service = clipboard_service
-        self._export_dialog = SapExportDialogService(settings.sap_export_dir)
+        self._export_dialog = SapExportDialogService(settings.sap_iw59_export_dir)
 
     def run(self, session: SapSessionFacade, notes: list[str]) -> Path | None:
         logger.info("Executando transacao %s com %d nota(s)", self._settings.sap_transaction_iw59, len(notes))

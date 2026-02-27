@@ -15,12 +15,12 @@ from app.sap.transactions import Iw59TransactionRunner, SapNavigationService, Zu
 def get_orchestrator(settings: Settings = Depends(get_settings)) -> SapAutomationOrchestrator:
     """Builds orchestrator with concrete infrastructure services."""
     zucrm_watcher = ExportFileWatcher(
-        directory=settings.sap_export_dir,
+        directory=settings.sap_zucrm_export_dir,
         file_glob=settings.sap_zucrm_export_glob,
         timeout_seconds=settings.sap_export_timeout_seconds,
     )
     iw59_watcher = ExportFileWatcher(
-        directory=settings.sap_export_dir,
+        directory=settings.sap_iw59_export_dir,
         file_glob=settings.sap_iw59_export_glob,
         timeout_seconds=settings.sap_export_timeout_seconds,
     )

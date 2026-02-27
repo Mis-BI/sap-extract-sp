@@ -38,6 +38,8 @@ class Settings:
     sap_connection_name: str
     sap_logon_executable: str
     sap_export_dir: Path
+    sap_zucrm_export_dir: Path
+    sap_iw59_export_dir: Path
     sap_zucrm_export_glob: str
     sap_iw59_export_glob: str
     sap_export_timeout_seconds: int
@@ -57,6 +59,21 @@ class Settings:
 
         export_dir_raw = os.getenv("SAP_EXPORT_DIR", str(export_default)).strip() or str(export_default)
         log_file_raw = os.getenv("LOG_FILE", str(log_default)).strip() or str(log_default)
+        base_export_dir = _resolve_project_path(export_dir_raw, project_root)
+
+        zucrm_export_dir_raw = os.getenv("SAP_ZUCRM_EXPORT_DIR", "").strip()
+        iw59_export_dir_raw = os.getenv("SAP_IW59_EXPORT_DIR", "").strip()
+
+        zucrm_export_dir = (
+            _resolve_project_path(zucrm_export_dir_raw, project_root)
+            if zucrm_export_dir_raw
+            else (base_export_dir / "zucrm039")
+        )
+        iw59_export_dir = (
+            _resolve_project_path(iw59_export_dir_raw, project_root)
+            if iw59_export_dir_raw
+            else (base_export_dir / "iw59")
+        )
 
         return cls(
             sap_username=os.getenv("SAP_USERNAME", "").strip(),
@@ -72,7 +89,9 @@ class Settings:
                 "SAP_LOGON_EXECUTABLE",
                 r"C:\Program Files (x86)\SAP\FrontEnd\SAPgui\saplogon.exe",
             ).strip(),
-            sap_export_dir=_resolve_project_path(export_dir_raw, project_root),
+            sap_export_dir=base_export_dir,
+            sap_zucrm_export_dir=zucrm_export_dir,
+            sap_iw59_export_dir=iw59_export_dir,
             sap_zucrm_export_glob=os.getenv("SAP_ZUCRM_EXPORT_GLOB", "export*.XLSX").strip() or "export*.XLSX",
             sap_iw59_export_glob=os.getenv("SAP_IW59_EXPORT_GLOB", "brs_sap_gov_sp*.XLSX").strip() or "brs_sap_gov_sp*.XLSX",
             sap_export_timeout_seconds=_as_int(os.getenv("SAP_EXPORT_TIMEOUT_SECONDS"), 180),
