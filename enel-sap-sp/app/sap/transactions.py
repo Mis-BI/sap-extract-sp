@@ -73,6 +73,7 @@ class Zucrm039TransactionRunner:
     def run(self, session: SapSessionFacade, start_date: date, end_date: date) -> Path:
         logger.info("Executando transacao %s", self._settings.sap_transaction_zucrm)
         baseline = self._file_watcher.snapshot()
+        baseline_all = self._snapshot_all_excel_files()
 
         session.maximize()
         session.set_text("wnd[0]/tbar[0]/okcd", self._settings.sap_transaction_zucrm)
@@ -93,13 +94,62 @@ class Zucrm039TransactionRunner:
         session.select("wnd[0]/mbar/menu[0]/menu[4]/menu[1]")
         started_epoch = self._export_dialog.finalize_export(session)
 
-        exported_file = self._file_watcher.wait_for_export(
-            baseline=baseline,
-            execution_started_epoch=started_epoch,
-        )
+        try:
+            exported_file = self._file_watcher.wait_for_export(
+                baseline=baseline,
+                execution_started_epoch=started_epoch,
+            )
+        except SapExportTimeoutError:
+            fallback_file = self._find_export_named_fallback(
+                baseline_all=baseline_all,
+                execution_started_epoch=started_epoch,
+            )
+            if fallback_file is None:
+                raise
+            logger.warning(
+                "Arquivo ZUCRM nao detectado pelo glob configurado; usando fallback por nome: %s",
+                fallback_file,
+            )
+            exported_file = fallback_file
 
         logger.info("Arquivo ZUCRM detectado: %s", exported_file)
         return exported_file
+
+    def _snapshot_all_excel_files(self) -> dict[Path, float]:
+        snapshot: dict[Path, float] = {}
+        directory = self._settings.sap_export_dir
+        for pattern in ("*.XLSX", "*.xlsx"):
+            for path in directory.glob(pattern):
+                try:
+                    resolved = path.resolve()
+                    snapshot[resolved] = resolved.stat().st_mtime
+                except OSError:
+                    continue
+        return snapshot
+
+    def _find_export_named_fallback(self, baseline_all: dict[Path, float], execution_started_epoch: float) -> Path | None:
+        directory = self._settings.sap_export_dir
+        candidate: Path | None = None
+        candidate_mtime = -1.0
+
+        for pattern in ("export*.XLSX", "export*.xlsx"):
+            for path in directory.glob(pattern):
+                try:
+                    resolved = path.resolve()
+                    mtime = resolved.stat().st_mtime
+                except OSError:
+                    continue
+
+                previous_mtime = baseline_all.get(resolved)
+                is_new = previous_mtime is None
+                is_updated = previous_mtime is not None and mtime > previous_mtime + 1e-6
+                is_after_execution = mtime >= execution_started_epoch - 1.0
+
+                if (is_new or is_updated) and is_after_execution and mtime > candidate_mtime:
+                    candidate = resolved
+                    candidate_mtime = mtime
+
+        return candidate
 
 
 class SapNavigationService:

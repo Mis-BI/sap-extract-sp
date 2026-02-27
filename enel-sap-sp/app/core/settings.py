@@ -73,7 +73,7 @@ class Settings:
                 r"C:\Program Files (x86)\SAP\FrontEnd\SAPgui\saplogon.exe",
             ).strip(),
             sap_export_dir=_resolve_project_path(export_dir_raw, project_root),
-            sap_zucrm_export_glob=os.getenv("SAP_ZUCRM_EXPORT_GLOB", "sap_gov_sp*.XLSX").strip() or "sap_gov_sp*.XLSX",
+            sap_zucrm_export_glob=os.getenv("SAP_ZUCRM_EXPORT_GLOB", "export*.XLSX").strip() or "export*.XLSX",
             sap_iw59_export_glob=os.getenv("SAP_IW59_EXPORT_GLOB", "brs_sap_gov_sp*.XLSX").strip() or "brs_sap_gov_sp*.XLSX",
             sap_export_timeout_seconds=_as_int(os.getenv("SAP_EXPORT_TIMEOUT_SECONDS"), 180),
             sap_f3_max_presses=_as_int(os.getenv("SAP_F3_MAX_PRESSES"), 20),
